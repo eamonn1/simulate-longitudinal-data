@@ -1,10 +1,11 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Rshiny ideas from on https://gallery.shinyapps.io/multi_regression/
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+require(tidyverse)
+require(ggplot2)
 library(shiny) 
 library(nlme)
-library(VCA)
+library(MASS)
 options(max.print=1000000)
 fig.width <- 1200
 fig.height <- 450
@@ -50,19 +51,37 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             div(("describe input options...another sample can be taken from the same population/data generating mechanisim by clicking 'Simulate a new sample'.")),
                             br(),
                             
-                            sliderInput("top",
-                                        "Select the number of independent groups",
-                                        min=3, max=26, step=1, value=7, ticks=FALSE),
+                            sliderInput("n",
+                                        "No of subjects",
+                                        min=2, max=500, step=1, value=10, ticks=FALSE),
                             
-                            sliderInput("range1", "Select group sizes: randomly select using range or uniquely select:", 
-                                        min = 2, max = 2000, value = c(2, 500), ticks=FALSE) ,
+                            sliderInput("beta0", "Average intercept", 
+                                        min = 50, max = 2000, value = c(400), ticks=FALSE) ,
                             
-                            sliderInput("range2", "Select true group means: randomly select using range or uniquely select:",
-                                        min = -100, max = 100, value = c(-50, 50),ticks=FALSE),
+                            sliderInput("beta1", "Average slope",
+                                        min = -100, max = 100, value = c(-60),ticks=FALSE),
                             
-                            sliderInput("range3", "Select true group standard deviations: randomly select using range or uniquely select",
-                                        min = 2, max = 50, value = c(3, 16), ticks=FALSE)
+                            sliderInput("ar.val", "True autocorrelation", #   ar.val
+                                        min = 0, max = 1, value = c(.4), ticks=FALSE),
+                       
+                            sliderInput("sigma", "True error SD", #    
+                                        min = 2, max = 200, value = c(100), ticks=FALSE),
                             
+                            sliderInput("tau0", "True intercept SD", #   
+                                        min = 1, max = 100, value = c(25), ticks=FALSE),
+                            
+                            sliderInput("tau1", "True slope SD", #    
+                                        min = 1, max = 100, value = c(10), ticks=FALSE),
+                            
+                            sliderInput("tau01", "True intercept slope correlation", #   
+                                        min = 0, max = 1, value = c(.41), ticks=FALSE),
+                            
+                            sliderInput("m", "maximum number of possible observations", #   
+                                        min = 2, max = 100, value = c(10), ticks=FALSE)
+                        
+                            
+                            
+                               
                         )
                     ),
                     
@@ -239,7 +258,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                 Here we prefer simple plotting to look for an unspecifiable amount of
                 non normality that may help look into any issues rather than a formal approach using statistical tests.")),
                                      
-                                     div(plotOutput("residual", width=1200, height=800)) ,
+                                   #  div(plotOutput("residual", width=1200, height=800)) ,
                             ) ,
                             
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -247,7 +266,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                                      
                                      p(strong("IV is the independent variable, DV is the dependent variable. mu and sd are just for information and are the true mean and sd for each IV group.")),
                                      
-                                     div( verbatimTextOutput("summary2")),
+                                   #  div( verbatimTextOutput("summary2")),
                                      
                             )
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -271,49 +290,30 @@ server <- shinyServer(function(input, output) {
         # Dummy line to trigger off button-press
         foo <- input$resample
         
-        x1 <- input$range1[1]  #size
-        x2 <- input$range1[2]
-        x3 <- input$range2[1]  #mean
-        x4 <- input$range2[2]
-        x5 <- input$range3[1]  #sd
-        x6 <- input$range3[2]
         
-        top <-  input$top  # number of groups
-        
-        # seems that I need to use both c(x1,x2) c(x1:x2) so sample function works correctly
-        
-        if (x1==x2) {
-            
-            middle <-  sample(c(x1,x2),   top, replace=TRUE)    # choose top count between sliders 
-            
-        } else {
-            
-            middle <-  sample(c(x1:x2),   top, replace=TRUE)    #  
-        }
+         n <- input$n 
+         beta0<- input$beta0
+         beta1<- input$beta1
+         ar.val <- input$ ar.val 
+         sigma <- input$sigma
+        tau0 <- input$tau0
+        tau1<- input$tau1
+        tau01<- input$tau01
+         m <- input$m
         
         
-        if (x3==x4) {
-            
-            lower <-   sample(c(x3,x4),   top, replace=TRUE )  #group means
-            
-        } else {
-            
-            lower <-   sample(c(x3:x4),  top, replace=TRUE )  # groups means 
-            
-        }
         
-        if (x5==x6) {
-            
-            replicates <-  sample(c(x5,x6),  top, replace=TRUE )   #group sds
-            
-        } else {
-            
-            replicates <-  sample(c(x5:x6),   top, replace=TRUE )   #grp sds
-            
-        }
         
         return(list( 
-            middle=middle, top=top, lower=lower, replicates=replicates
+            n =n ,
+            beta0=beta0,
+            beta1=beta1,
+            ar.val= ar.val ,
+            sigma =sigma,
+            tau0 =tau0,
+            tau1=tau1,
+            tau01=tau01,
+            m =m
         ))
         
     }) 
@@ -325,37 +325,50 @@ server <- shinyServer(function(input, output) {
         #   https://stats.stackexchange.com/questions/28876/difference-between-anova-power-simulation-and-power-calculation
         
         sample <- random.sample()
+        n<- sample$n
+        beta0<- sample$beta0
+        beta1<- sample$beta1
+        ar.val <- sample$ar.val 
+        sigma <- sample$sigma
+        tau0 <- sample$tau0
+        tau1<- sample$tau1
+        tau01<- sample$tau01
+        m <- sample$m
         
-        top <-        sample$top
-        middle <-     sample$middle
-        lower <-      sample$lower
-        replicates <- sample$replicates
+        p <- round(runif(n,4,m))
         
-        Nj    <- sum(middle)                  # sum each group size 
+        ### simulate observation moments (assume everybody has 1st obs)
+        obs <- unlist(sapply(p, function(x) c(1, sort(sample(2:m, x-1, replace=FALSE)))))
         
-        muJ   <- rep(lower, rep(middle))      # expand means by group sizes
+        ### set up data frame
+        dat <- data.frame(id=rep(1:n, times=p), obs=obs)
         
-        sds   <- rep(replicates, rep(middle)) # expand sd by group sizes
+        ### simulate (correlated) random effects for intercepts and slopes
+        mu  <- c(0,0)
+        S   <- matrix(c(1, tau01, tau01, 1), nrow=2)
+        tau <- c(tau0, tau1)
+        S   <- diag(tau) %*% S %*% diag(tau)
+        U   <- mvrnorm(n, mu=mu, Sigma=S)
         
-        grpnames <- LETTERS[1:top]
+        ### simulate AR(1) errors and then the actual outcomes
+        dat$eij <- unlist(sapply(p, function(x) arima.sim(model=list(ar=ar.val), n=x) * sqrt(1-ar.val^2) * sigma))
+        dat$yij <- (beta0 + rep(U[,1], times=p)) + (beta1 + rep(U[,2], times=p)) * log(dat$obs) + dat$eij
         
-        IV <- factor( rep( grpnames, rep(middle) ) )
+        ### note: use arima.sim(model=list(ar=ar.val), n=x) * sqrt(1-ar.val^2) * sigma
+        ### construction, so that the true error SD is equal to sigma
         
-        d <- data.frame(IV=IV,
-                        mu= muJ, 
-                        sd= sds,
-                        x=1
-        )
+        ### create grouped data object
+       dd <- dat <- groupedData(yij ~ obs | id, data=dat)
         
-        d$DV = rnorm(d$x, d$mu, d$sd)  # create the response
+        ### profile plots
+        #plot(dat, pch=19, cex=.5)
         
-        df <- as.data.frame(d)
+        ### fit corresponding growth model
+        # res <- lme(yij ~ log(obs), random = ~ log(obs) | id, correlation = corAR1(form = ~ 1 | id), data=dat)
+        # summary(res)
+        # 
         
-        dd <- plyr::arrange(df, IV)    # sort and create for better order
-        
-        dd$x <- NULL
-        
-        return(list(df=df, dd=dd)) 
+        return(list(dat=dat, dd=dd)) 
         
     })  
     
@@ -365,7 +378,7 @@ server <- shinyServer(function(input, output) {
         
         data <- make.regression()
         
-        df <- data$df
+        df <- data$dat
         
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Conditionally fit the model
@@ -373,7 +386,9 @@ server <- shinyServer(function(input, output) {
         if (input$Model == "base R") {
             
             fit.res <-  
-                tryCatch(aov(DV ~IV, df), 
+                tryCatch( 
+                    lme(yij ~ log(obs), random = ~ log(obs) | id, correlation = corAR1(form = ~ 1 | id), data=df)
+                    , 
                          error=function(e) e)
             
             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -383,16 +398,8 @@ server <- shinyServer(function(input, output) {
             if (!inherits(fit.res, "error")) {
                 
                 ff <- fit.res
-                fit.res <-  anova(fit.res) # for the residuals
-                
-                df.b     <- fit.res[['Df']][1] 
-                df.w     <- fit.res[['Df']][2] 
-                ss.b     <- fit.res[['Sum Sq']][1]
-                ss.w     <- fit.res[['Sum Sq']][2]
-                ms.b     <- fit.res[['Mean Sq']][1]
-                ms.w     <- fit.res[['Mean Sq']][2]
-                f        <- fit.res[['F value']][1]
-                p        <- fit.res[['Pr(>F)']][1]
+                fit.res <-  summary(fit.res) # for the residuals
+              
                 
                 
             } else  {
@@ -405,29 +412,18 @@ server <- shinyServer(function(input, output) {
         } else if (input$Model == "VCA package") {          
             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             
-            o <- fit.res<- tryCatch(anovaVCA(DV~IV, df), 
-                                    error=function(e) e) 
+            fit.res <-  
+                tryCatch( 
+                    lme(yij ~ log(obs), random = ~ log(obs) | id, correlation = corAR1(form = ~ 1 | id), data=df)
+                    , 
+                    error=function(e) e)
+            
             
             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             if (!inherits(fit.res, "error")) {
                 
-                fit.res <- VCAinference(fit.res, ci.method = "sas")
                 ff <- fit.res
-                x <- as.matrix(o)
-                features <- attributes(x)
-                
-                emu      <-  (features$Mean) 
-                
-                o <- as.matrix(o)
-                
-                df.b     <-  (o["IV",   "DF"])
-                df.w     <-  (o["error","SD"])
-                ss.b     <-  (o["IV"   ,"SS"])
-                ss.w     <-  (o["error","SS"])
-                ms.b     <-  (o["IV"   ,"MS"])
-                ms.w     <-  (o["error","MS"])
-                f        <-  NULL
-                p        <-  NULL
+                fit.res <-  summary(fit.res) # for the residuals
                 
                 
             } else  {
@@ -451,9 +447,8 @@ server <- shinyServer(function(input, output) {
             fit.summary <-  (fit.res)
         }
         
-        return(list(df.b=df.b, df.w=df.w, ss.b=ss.b, 
-                    ss.w=ss.w,ms.b=ms.b,ms.w=ms.w,f=f,p=p,
-                    fit.res=fit.res, fit.summary=fit.summary, ff=ff
+        return(list(  
+                    fit.res=fit.res 
                     
         ))
         
@@ -461,70 +456,70 @@ server <- shinyServer(function(input, output) {
     
     # --------------------------------------------------------------------------
     # Set up the dataset based on the inputs 
-    explain <- reactive({
-        
-        data <- make.regression()
-        
-        df <- data$df
-        
-        #### useful statistics
-        Nj        <- length(df$DV)                # total no of observations
-        Grandmean <- mean(df$DV)                  # grand mean
-        grpn      <- tapply(df$DV, df$IV, length) # group sizes
-        no.grps   <- length(names(table(  df$IV)))# no of groups
-        means     <- tapply(df$DV, df$IV, mean)   # group means
-        vars      <- tapply(df$DV, df$IV, var)    # group variances
-        
-        # simple approiach only for balanced designs
-        # estimate sigma2 using a pooled estimate of the variance of each group
-        ms.wb <-sum(vars)/no.grps
-        
-        # we have another way , if the 4 means do not differ the sample means are normally
-        # distributed with variance sigma2/group size. sigma2/group size can be estimated by the
-        # variance of the smaple means
-        # so group size x the above is another estimate of sigma2
-        
-        ms.bb <- var(means)*unique(grpn)
-        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # more generally, if groups are of different sizes...
-        # within sum of squares
-        ss.w <- sum( (grpn-1) * vars )
-        
-        # within df
-        df.w <- Nj -  no.grps
-        
-        # mean square within
-        ms.w <- ss.w /df.w
-        
-        # between sum of squares
-        ss.b <- sum(grpn * (means - Grandmean)^2)
-        
-        # between df
-        df.b <- no.grps -1
-        
-        # mean square between
-        ms.b <- ss.b /df.b
-        
-        #pvalue
-        pv  <- 1 - pf( ms.b/ms.w, df.b, df.w)
-        
-        A <- c(  df.b,   ss.b, ms.b, ms.b/ms.w, pv , ms.bb)
-        B <- c(  df.w  , ss.w, ms.w, NA,        NA , ms.wb)
-        
-        ANOVA <- NULL
-        ANOVA <- as.data.frame(rbind(A,B))
-        
-        n1 <- c("Df","Sum Sq","Mean Sq","F value","Pr(>F)", "Mean Sq balanced only")
-        n2 <- c("IV","Residuals")
-        
-        colnames(ANOVA) <- n1
-        rownames(ANOVA) <- n2
-        
-        ANOVA <-  as.data.frame(ANOVA[,1:6])
-        ANOVA2 <-  as.data.frame(ANOVA[,1:5])
-        
-        return(list( ANOVA=ANOVA, ANOVA2=ANOVA2)) 
-    })  
+    # explain <- reactive({
+    #     
+    #     data <- make.regression()
+    #     
+    #     df <- data$df
+    #     
+    #     #### useful statistics
+    #     Nj        <- length(df$DV)                # total no of observations
+    #     Grandmean <- mean(df$DV)                  # grand mean
+    #     grpn      <- tapply(df$DV, df$IV, length) # group sizes
+    #     no.grps   <- length(names(table(  df$IV)))# no of groups
+    #     means     <- tapply(df$DV, df$IV, mean)   # group means
+    #     vars      <- tapply(df$DV, df$IV, var)    # group variances
+    #     
+    #     # simple approiach only for balanced designs
+    #     # estimate sigma2 using a pooled estimate of the variance of each group
+    #     ms.wb <-sum(vars)/no.grps
+    #     
+    #     # we have another way , if the 4 means do not differ the sample means are normally
+    #     # distributed with variance sigma2/group size. sigma2/group size can be estimated by the
+    #     # variance of the smaple means
+    #     # so group size x the above is another estimate of sigma2
+    #     
+    #     ms.bb <- var(means)*unique(grpn)
+    #     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #     # more generally, if groups are of different sizes...
+    #     # within sum of squares
+    #     ss.w <- sum( (grpn-1) * vars )
+    #     
+    #     # within df
+    #     df.w <- Nj -  no.grps
+    #     
+    #     # mean square within
+    #     ms.w <- ss.w /df.w
+    #     
+    #     # between sum of squares
+    #     ss.b <- sum(grpn * (means - Grandmean)^2)
+    #     
+    #     # between df
+    #     df.b <- no.grps -1
+    #     
+    #     # mean square between
+    #     ms.b <- ss.b /df.b
+    #     
+    #     #pvalue
+    #     pv  <- 1 - pf( ms.b/ms.w, df.b, df.w)
+    #     
+    #     A <- c(  df.b,   ss.b, ms.b, ms.b/ms.w, pv , ms.bb)
+    #     B <- c(  df.w  , ss.w, ms.w, NA,        NA , ms.wb)
+    #     
+    #     ANOVA <- NULL
+    #     ANOVA <- as.data.frame(rbind(A,B))
+    #     
+    #     n1 <- c("Df","Sum Sq","Mean Sq","F value","Pr(>F)", "Mean Sq balanced only")
+    #     n2 <- c("IV","Residuals")
+    #     
+    #     colnames(ANOVA) <- n1
+    #     rownames(ANOVA) <- n2
+    #     
+    #     ANOVA <-  as.data.frame(ANOVA[,1:6])
+    #     ANOVA2 <-  as.data.frame(ANOVA[,1:5])
+    #     
+    #     return(list( ANOVA=ANOVA, ANOVA2=ANOVA2)) 
+    # })  
     
     # --------------------------------------------------------------------------
     #---------------------------------------------------------------------------
@@ -535,56 +530,197 @@ server <- shinyServer(function(input, output) {
         # Get the current regression data
         data1 <- make.regression()
         
-        df <- data1$df
+        df <- data1$dat
         
         # Conditionally plot
         if (input$Plot == "ggplot") {
             
             #base plot~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             #https://rstudio-pubs-static.s3.amazonaws.com/308410_2ece93ee71a847af9cd12fa750ed8e51.html
-            require(ggplot2)
-            ggplot(df, aes(reorder(IV,DV),DV,fill=IV))+
-                # ggplot(tyre, aes(Brands,Mileage,fill=Brands))+ # if you want to leave them alphabetic
-                geom_jitter(colour = "gray",width= 0.05) +
-                stat_boxplot(geom ='errorbar',width = 0.4) +
-                geom_boxplot()+
-                labs(title="Boxplot, dotplot and Standard error of mean for groups", 
-                     x = "Groups (sorted)",
-                     y = "Response",
-                     subtitle ="Gray dots=sample data points, Black dot=outlier, Blue dot=mean, Red=99% confidence interval",
-                     caption = "") +
-                guides(fill=FALSE) +
-                stat_summary(fun.data = "mean_cl_normal", colour = "red", size = 1.5, fun.args = list(conf.int=.99)) +
-                stat_summary(geom="point", fun.y=mean, color="blue") +
-                theme_bw() 
+            names(df) <- c("ID","VISIT","eij","value")
+            
+           
+            #df$value <- log(df$value)  #log the GH values!!!!!!!!!!!!!!! 
+            
+            
+            df_summary <- df %>% # the names of the new data frame and the data frame to be summarised
+                group_by(VISIT) %>%                # the grouping variable
+                summarise(mean_PL = mean(value, na.rm=TRUE),  # calculates the mean of each group
+                          sd_PL = sd(value, na.rm=TRUE),      # calculates the sd of each group
+                          n_PL = length(na.omit(value)),      # calculates the sample size per group
+                          SE_PL = sd(value, na.rm=TRUE)/sqrt(length(na.omit(value)))) # SE of each group
+            
+            df_summary1 <- merge(df, df_summary)  # merge stats to dataset
+            
+            df_summary1$L2SE <- df_summary1$mean_PL - 2*df_summary1$SE_PL
+            df_summary1$H2SE <- df_summary1$mean_PL + 2*df_summary1$SE_PL
+            
+            
+            pr1 <- ggplot((df_summary1), aes(x = VISIT, y =value, color = ID)) +
+                geom_line( size=.5, alpha=0.2) +
+                stat_summary(geom="line",  fun.y=mean, colour="black", lwd=0.5) +  # , linetype="dashed"
+                stat_summary(geom="point", fun.y=mean, colour="black") +
+                geom_errorbar(data=(df_summary1), 
+                              aes( ymin=L2SE, ymax=H2SE ), color = "black",
+                              width=0.05, lwd = 0.05) +
+                scale_y_continuous(expand = c(.1,0) ) +
+                
+                
+                
+                scale_x_continuous(breaks = c(unique(df$VISIT)),
+                                   labels = 
+                                       c(unique(df$VISIT))
+                ) +
+                
+                
+                #  geom_segment(aes(x = 1, xend = 3, y = (1), yend=(1)), color = "blue" , size=0.05, linetype="dashed", alpha=0.02) +
+                #  geom_segment(aes(x = 1, xend = 3, y = (2.5), yend=(2.5)), color = "blue" , size=0.05, linetype="dashed", alpha=0.02) +
+                
+                # theme(axis.text.y   = element_text(size=10),
+                #       axis.text.x   = element_text(size=10),
+                #       axis.title.y  = element_text(size=14),
+                #       axis.title.x  = element_text(size=14),
+                #       panel.background = element_blank(),
+                #       panel.grid.major = element_blank(), 
+            #       panel.grid.minor = element_blank(),
+            #       legend.position="none",
+            #       legend.text=NULL,
+            #       legend.title=NULL,
+            #       axis.line = element_line(colour = "black", size=0.05),
+            #       panel.border = element_rect(colour = "black", fill=NA, size=0.05)
+            # ) +
+            
+            
+            
+            EnvStats::stat_n_text(size = 4, y.pos = max(df_summary1$value, na.rm=T)*1.1 , y.expand.factor=0, 
+                                  angle = 0, hjust = .5, family = "mono", fontface = "plain") + #295 bold
+                
+                theme(panel.background=element_blank(),
+                      # axis.text.y=element_blank(),
+                      # axis.ticks.y=element_blank(),
+                      # https://stackoverflow.com/questions/46482846/ggplot2-x-axis-extreme-right-tick-label-clipped-after-insetting-legend
+                      # stop axis being clipped
+                      plot.title=element_text(), plot.margin = unit(c(5.5,12,5.5,5.5), "pt"),
+                      legend.text=element_text(size=12),
+                      legend.title=element_text(size=14),
+                      legend.position="none",
+                      axis.text.x  = element_text(size=10),
+                      axis.text.y  = element_text(size=10),
+                      axis.line.x = element_line(color="black"),
+                      axis.line.y = element_line(color="black"),
+                      plot.caption=element_text(hjust = 0, size = 7))
+            
+            
+            print(pr1 + labs(y="Response", x = "Visit") + 
+                      ggtitle(paste0("Individual responses ",
+                                     length(unique(df$ID))," patients & arithmetic mean with 95% CI shown in black\nNumber of patient values at each time point") )
+            
+                  )
+            
+            
+            pr1
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
             
         } else {
             
             #VCA plot~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            require(VCA)
-            varPlot(DV~IV, df, 
-                    BG=list(var="IV", 
-                            col=c("#f7fcfd","#e5f5f9","#ccece6","#99d8c9",
-                                  "#66c2a4","#41ae76","#238b45","#006d2c","#00441b"), 
-                            col.table=TRUE), 
-                    VLine=list(var=c("IV"), 
-                               col=c("black", "mediumseagreen"), lwd=c(2,1), 
-                               col.table=c(TRUE,TRUE)), 
-                    JoinLevels=list(var="IV", col=c("lightblue", "cyan", "yellow"), 
-                                    lwd=c(2,2,2), 
-                                    MeanLine=list(var="DV", col="blue", lwd=2) ,
-                                    
-                                    # Title=list(main=paste("Variability Chart. Truth (estimate): intercept "
-                                    #                       ,input$intercept,"(",fit.regression()$emu,"), top level sd=",
-                                    #            input$a,"(",fit.regression()$etop,")", ",\n middle level sd=",
-                                    #            input$b ,"(",fit.regression()$eday,"), lowest level sd=",
-                                    #            input$c, "(",fit.regression()$erun,") & random error sd=", 
-                                    #            input$d,"(",fit.regression()$esigma,")")),
-                                    
-                                    # MeanLine=list(var="mid", col="pink", lwd=2),
-                                    Points=list(pch=list(var="mid", pch=c(21, 22, 24)), 
-                                                bg =list(var="mid", bg=c("lightblue", "cyan", "yellow")), 
-                                                cex=1.25))    )
+            #base plot~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            #https://rstudio-pubs-static.s3.amazonaws.com/308410_2ece93ee71a847af9cd12fa750ed8e51.html
+            names(df) <- c("ID","VISIT","eij","value")
+            
+            
+            #df$value <- log(df$value)  #log the GH values!!!!!!!!!!!!!!! 
+            
+            
+            df_summary <- df %>% # the names of the new data frame and the data frame to be summarised
+                group_by(VISIT) %>%                # the grouping variable
+                summarise(mean_PL = mean(value, na.rm=TRUE),  # calculates the mean of each group
+                          sd_PL = sd(value, na.rm=TRUE),      # calculates the sd of each group
+                          n_PL = length(na.omit(value)),      # calculates the sample size per group
+                          SE_PL = sd(value, na.rm=TRUE)/sqrt(length(na.omit(value)))) # SE of each group
+            
+            df_summary1 <- merge(df, df_summary)  # merge stats to dataset
+            
+            df_summary1$L2SE <- df_summary1$mean_PL - 2*df_summary1$SE_PL
+            df_summary1$H2SE <- df_summary1$mean_PL + 2*df_summary1$SE_PL
+            
+            
+            pr1 <- ggplot((df_summary1), aes(x = VISIT, y =value, color = ID)) +
+                geom_line( size=.5, alpha=0.2) +
+                stat_summary(geom="line",  fun.y=mean, colour="black", lwd=0.5) +  # , linetype="dashed"
+                stat_summary(geom="point", fun.y=mean, colour="black") +
+                geom_errorbar(data=(df_summary1), 
+                              aes( ymin=L2SE, ymax=H2SE ), color = "black",
+                              width=0.05, lwd = 0.05) +
+                scale_y_continuous(expand = c(.1,0) ) +
+                
+                
+                
+                scale_x_continuous(breaks = c(unique(df$VISIT)),
+                                   labels = 
+                                       c(unique(df$VISIT))
+                ) +
+                
+                
+                #  geom_segment(aes(x = 1, xend = 3, y = (1), yend=(1)), color = "blue" , size=0.05, linetype="dashed", alpha=0.02) +
+                #  geom_segment(aes(x = 1, xend = 3, y = (2.5), yend=(2.5)), color = "blue" , size=0.05, linetype="dashed", alpha=0.02) +
+                
+                # theme(axis.text.y   = element_text(size=10),
+                #       axis.text.x   = element_text(size=10),
+                #       axis.title.y  = element_text(size=14),
+                #       axis.title.x  = element_text(size=14),
+                #       panel.background = element_blank(),
+                #       panel.grid.major = element_blank(), 
+            #       panel.grid.minor = element_blank(),
+            #       legend.position="none",
+            #       legend.text=NULL,
+            #       legend.title=NULL,
+            #       axis.line = element_line(colour = "black", size=0.05),
+            #       panel.border = element_rect(colour = "black", fill=NA, size=0.05)
+            # ) +
+            
+            
+            
+            EnvStats::stat_n_text(size = 4, y.pos = max(df_summary1$value, na.rm=T)*1.1 , y.expand.factor=0, 
+                                  angle = 0, hjust = .5, family = "mono", fontface = "plain") + #295 bold
+                
+                theme(panel.background=element_blank(),
+                      # axis.text.y=element_blank(),
+                      # axis.ticks.y=element_blank(),
+                      # https://stackoverflow.com/questions/46482846/ggplot2-x-axis-extreme-right-tick-label-clipped-after-insetting-legend
+                      # stop axis being clipped
+                      plot.title=element_text(), plot.margin = unit(c(5.5,12,5.5,5.5), "pt"),
+                      legend.text=element_text(size=12),
+                      legend.title=element_text(size=14),
+                      legend.position="none",
+                      axis.text.x  = element_text(size=10),
+                      axis.text.y  = element_text(size=10),
+                      axis.line.x = element_line(color="black"),
+                      axis.line.y = element_line(color="black"),
+                      plot.caption=element_text(hjust = 0, size = 7))
+            
+            
+            print(pr1 + labs(y="Response", x = "Visit") + 
+                      ggtitle(paste0("Individual responses ",
+                                     length(unique(df$ID))," patients & arithmetic mean with 95% CI shown in black\nNumber of patient values at each time point") )
+            )
+            
+            pr1
+            
         }
         
     })
@@ -593,23 +729,23 @@ server <- shinyServer(function(input, output) {
     #---------------------------------------------------------------------------
     # Plot residuals 
     
-    output$residual <- renderPlot({         
+  #  output$residual <- renderPlot({         
         
         # Get the current regression model
-        d  <- fit.regression()
+        # d  <- fit.regression()
+        # 
+        # f<- d$ff
+        # 
+        # par(mfrow=c(3,2))
+        # plot(f)
+        # 
+        # #dd <- d$fit.res
+        # anova.residuals <- residuals( object =  f) # extract the residuals
+        # # A simple histogram
+        # hist( x = anova.residuals , breaks=50, main=paste("Histogram of ANOVA residuals, SD=",p2(sd(anova.residuals)),"")) # another way of seeing residuals
+        # par(mfrow=c(1,1)) 
         
-        f<- d$ff
-        
-        par(mfrow=c(3,2))
-        plot(f)
-        
-        #dd <- d$fit.res
-        anova.residuals <- residuals( object =  f) # extract the residuals
-        # A simple histogram
-        hist( x = anova.residuals , breaks=50, main=paste("Histogram of ANOVA residuals, SD=",p2(sd(anova.residuals)),"")) # another way of seeing residuals
-        par(mfrow=c(1,1)) 
-        
-    })
+ #   })
     
     #---------------------------------------------------------------------------
     # Show the summary for the 
@@ -632,17 +768,17 @@ server <- shinyServer(function(input, output) {
     })
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # the data to print, I wooulf like to reuse this but dont think it is possible? So I add another function to collect the same information below
-    output$byhand <- renderPrint({
-        
-        return(explain()$ANOVA)
-        
-    })
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    output$byhand2 <- renderPrint({
-        
-        return(explain()$ANOVA2)
-        
-    })
+    # output$byhand <- renderPrint({
+    #     
+    #     return(explain()$ANOVA)
+    #     
+    # })
+    # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # output$byhand2 <- renderPrint({
+    #     
+    #     return(explain()$ANOVA2)
+    #     
+    # })
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
 })
 
@@ -650,17 +786,17 @@ server <- shinyServer(function(input, output) {
 shinyApp(ui = ui, server = server)
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
-
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white')
-    })
-}
+# server <- function(input, output) {
+# 
+#     output$distPlot <- renderPlot({
+#         # generate bins based on input$bins from ui.R
+#         x    <- faithful[, 2]
+#         bins <- seq(min(x), max(x), length.out = input$bins + 1)
+# 
+#         # draw the histogram with the specified number of bins
+#         hist(x, breaks = bins, col = 'darkgray', border = 'white')
+#     })
+# }
 
 # Run the application 
-shinyApp(ui = ui, server = server)
+# shinyApp(ui = ui, server = server)
