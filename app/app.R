@@ -13,7 +13,7 @@ library(shinythemes)        # more funky looking apps
 p1 <- function(x) {formatC(x, format="f", digits=1)}
 p2 <- function(x) {formatC(x, format="f", digits=2)}
 options(width=100)
-
+set.seed(123)
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ui <- fluidPage(theme = shinytheme("journal"),
                 
@@ -21,11 +21,14 @@ ui <- fluidPage(theme = shinytheme("journal"),
                     
                     
                     headerPanel("
-                                title "),
+                                Simulating, plotting and analysing a cohort followed up over time "),
                     
                     sidebarPanel( 
                         
-                        div(p("intro here")),
+                        div(p("We simulate, plot and analyse longitudinal data. Two options for the data generation and analysis are provided. 
+                              'Log transforming the predictor (time) variable' and 'No transformation to the predictor (time) variable'. For the former log of time is included in
+                              the data generation and accounted for in the model. In the latter, no log transformation is applied nor included in the model. 
+                              The sliders can be used to select the true population parameters. Two plot options are provided, 'All profiles together' and 'Individual profile plots'.")),
                         
                         div(
                             
@@ -35,13 +38,9 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             
                             selectInput("Model",
                                         strong("Select modelling preference "),
-                                        choices=c( "log transforming the predictor (time) variable" , "No transformation to the predictor (time) variable" )),
+                                        choices=c( "Log transforming the predictor (time) variable" , "No transformation to the predictor (time) variable" )),
                             
-                            
-                            
-                            
-                            
-                            br(),
+                           
                             actionButton(inputId='ab1', label="R code",   icon = icon("th"), 
                                          onclick ="window.open('https://raw.githubusercontent.com/eamonn2014/lognormal-biomarker-analysis/master/RCT-lognormal-biomarker-analysis/app.R', '_blank')"),   
                             actionButton("resample", "Simulate a new sample"),
@@ -62,7 +61,10 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             div(strong("Select true population parameters"),p(" ")),
                             
                             
-                            div(("describe input options...another sample can be taken from the same population/data generating mechanisim by clicking 'Simulate a new sample'.")),
+                            div(("Select the number of subjects, average intercept, average slope, the auto correlation, error SD, intercept SD, slope SD and the slope intercept correlation as well as the maximum number of visits.
+                                 
+                                 
+                                 Another sample can be taken from the same population/data generating mechanisim by clicking 'Simulate a new sample'.")),
                             br(),
                             
                             sliderInput("n",
@@ -90,7 +92,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             sliderInput("tau01", "True intercept slope correlation", #   
                                         min = -1, max = 1, value = c(0), step=0.05, ticks=FALSE),
                             
-                            sliderInput("m", "maximum number of possible observations", #   
+                            sliderInput("m", "maximum number of visits", #   
                                         min = 2, max = 100, value = c(10), ticks=FALSE, step=1)
                         
                             
@@ -123,7 +125,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                                      
                                      div(plotOutput("reg.plot", width=fig.width, height=fig.height)),  
                                      
-                                     p(strong("text under plot here")) ,
+                                     p(strong("Above a plot of the data and below the output from the statistical analysis.")) ,
                                      
                                      div( verbatimTextOutput("reg.summary"))
                                      
@@ -131,53 +133,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                             tabPanel("2 tab", value=3, 
                                      
-                                     p(strong("When the sample sizes are equal we can explain ANOVA very simply. Let us estimate:")) ,
                                      
-                                     p("$$\\begin{align}
-                      \\sigma^2 \\\\
-                      \\end{align}$$"),
-                                     p(""), 
-                                     p(strong("using a pooled estimate of the variance in each group ",HTML(" <em>i</em>")," this is just the mean variance")),
-                                     
-                                     p("$$\\begin{align}
-                      s_p^2 =\\frac{\\sum  s_i^2}{I} \\approx \\sigma^2 \\\\
-                      \\end{align}$$"),
-                                     p(""), 
-                                     
-                                     p(strong("Here is the trick, we have another way to estimate the population variance, if the group means do not differ the sample means are normally 
-                distributed with variance:")),
-                                     
-                                     p("$$\\begin{align}
-                      \\frac{\\sigma^2}{n} = s_\\bar{Y}^2 \\\\
-                      \\end{align}$$"),
-                                     p(""), 
-                                     
-                                     p(strong("So if we calculate the variance of the sample means and multiply by the group size ",HTML(" <em>n</em>")," (remember we have equal group sizes), we have a second estimate of the population variance...")), 
-                                     
-                                     p("$$\\begin{align}
-                      \\sigma^2 = (n)(s_\\bar{Y}^2)  \\\\
-                      \\end{align}$$"),
-                                     p(""), 
-                                     
-                                     p(strong("Under the null hypothesis of equal means and standard deviation the ratio of the variances")), 
-                                     
-                                     p("$$\\begin{align*}
-                      \\frac{ (n)(s_\\bar{Y}^2)} { s_p^2 }   \\\\
-                      \\end{align*}$$"),
-                                     p(""), 
-                                     
-                                     p(strong("will follow an F-Distibution.")), 
-                                     
-                                     p(strong("The quantity  $$s_p^2$$ has degrees of freedom defined by group size-1 x number of groups")), 
-                                     
-                                     p(strong("The quantity  $$s_\\bar{Y}^2$$ has degrees of freedom defined by number of groups-1")), 
-                                     
-                                     p(strong("If the null hypothesis is not true (means not all equal) then  $$(n)(s_\\bar{Y}^2)$$ estimates $$\\sigma^2 + 
-                             \\text{positive constant}$$ so that the ratio $$\\frac{ (n)(s_\\bar{Y}^2)} { s_p^2 }$$  will tend to be larger than 1")),
-                                     
-                                     p(strong("See below an ANOVA table created by manual calculation, tagged on the right is the simple approach expounded upon above, this will only match if the group sizes are all the same, collapse the group size slider to one size to see.")), 
-                                     
-                                     div( verbatimTextOutput("byhand") ),
                                      
                                      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
                                      # for some reason this is need or abpve will not render!
@@ -190,71 +146,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                             tabPanel("3 tab", value=3, 
                                      
-                                     p(strong("More general calculations follow. That is, the groups do not have to be equal in size. We allow the number of observations to vary from group to group, so the within group estimate of 
-                          the population variances now becomes a weighted sum of sample variances. Where ",HTML(" <em>i</em>")," denotes the group, ",HTML(" <em>I</em>")," the number of groups, 
-                         ",HTML("<em>s</em>")," the standard deviation and 
-                          ",HTML("<em>n</em>"),"
-                          the number of observations.")),
-                                     
-                                     
-                                     p("$$\\begin{align*}
-                      B= \\frac{   (n_1 - 1)s_1^2  + (n_2 - 1)s_2^2 + ... + (n_i - 1)s_i^2}        {n_1 + n_2 + ... + n_i - i}  =   \\frac{\\sum  (n_i -1)s_i^2} {\\sum (n_i-1)} = \\frac{\\sum  (n_i -1)s_i^2}{n-I} \\\\
-                      \\end{align*}$$"),
-                                     p(""), 
-                                     
-                                     
-                                     p(strong("So we have the within group estimate of population variance, mean square.")) ,
-                                     
-                                     p("$$\\begin{align*}
-                      B= \\frac{\\sum  (n_i -1)s_i^2}{n-I}   \\\\
-                      \\end{align*}$$"),
-                                     p(""), 
-                                     
-                                     p("$$\\begin{align*}
-                       \\text{    degrees of freedom}  {=n-I}\\\\
-                      \\end{align*}$$"),
-                                     p(""), 
-                                     
-                                     
-                                     p(""), 
-                                     p(""), 
-                                     p(""), 
-                                     p(strong("But we have another way to estimate the population variance; between (among) group means, mean square calculated thus...")),
-                                     
-                                     p("$$\\begin{align}
-                     A= \\frac{\\sum  n_i (\\bar{Y}_{i.}  - \\bar{Y}_{..} ) ^2  }{I-1}\\\\
-                      \\end{align}$$"),
-                                     p(""), 
-                                     
-                                     p("$$\\begin{align*}
-                       \\text{  degrees of freedom}  {=I-1}\\\\
-                      \\end{align*}$$"),
-                                     p(""), 
-                                     
-                                     p(strong("The mean of group ",HTML(" <em>i</em>")," is denoted by")),
-                                     
-                                     p("$$\\begin{align}
-                       \\bar{Y}_{i.}   
-                      \\end{align}$$"),
-                                     p(""), 
-                                     p(strong("")),
-                                     
-                                     p(strong("The grand mean is denoted by")),
-                                     
-                                     p("$$\\begin{align}
-                       \\bar{Y}_{..}   
-                      \\end{align}$$"),
-                                     p(""), 
-                                     
-                                     p(strong("As before we can calculate a P-Value with reference to the F distribution. See below, for R code where 'pf' is the F distribution function.
-                          This will return the P-Value. The function 'pf' is the probability function, so in order to get the area in the right tail we take way from 1.")),
-                                     
-                                     p(strong("1 - pf(A/B, ",HTML(" <em> I - 1, n - I </em>)")," ")),
-                                     
-                                     p(strong(" ")),
-                                     p(strong("Below is the ANOVA generated by manual calculations using the above approach:")),
-                                     
-                                     div( verbatimTextOutput("byhand2") ),
+                                 
                                      
                                      # for some reason this is need or abpve will not render!
                                      withMathJax(
@@ -265,11 +157,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                             tabPanel("4 tab", 
                                      
-                                     p(strong("Is there evidence that the residuals are skewed or otherwise mis shapen
-                in a way that would influence the results? Note, our sample will be imperfect and our population
-                will not necessarily be 'perfectly normal' either.
-                Here we prefer simple plotting to look for an unspecifiable amount of
-                non normality that may help look into any issues rather than a formal approach using statistical tests.")),
+                                    
                                      
                                    #  div(plotOutput("residual", width=1200, height=800)) ,
                             ) ,
@@ -277,8 +165,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                             tabPanel("5 tab", 
                                      
-                                     p(strong("IV is the independent variable, DV is the dependent variable. mu and sd are just for information and are the true mean and sd for each IV group.")),
-                                     
+                                      
                                    #  div( verbatimTextOutput("summary2")),
                                      
                             )
@@ -371,7 +258,7 @@ server <- shinyServer(function(input, output) {
     
       
         
-        if (input$Model == "log transforming the predictor (time) variable") {
+        if (input$Model == "Log transforming the predictor (time) variable") {
            dat$yij <- (beta0 + rep(U[,1], times=p)) + (beta1 + rep(U[,2], times=p)) *  log(dat$obs) + dat$eij  
         }   else if (input$Model == "No transformation to the predictor (time) variable") {    
            dat$yij <- (beta0 + rep(U[,1], times=p)) + (beta1 + rep(U[,2], times=p)) *  (dat$obs) + dat$eij  
@@ -406,7 +293,7 @@ server <- shinyServer(function(input, output) {
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Conditionally fit the model
         
-        if (input$Model == "log transforming the predictor (time) variable") {
+        if (input$Model == "Log transforming the predictor (time) variable") {
             
             fit.res <-  
                 tryCatch( 
