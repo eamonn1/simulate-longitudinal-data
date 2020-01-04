@@ -38,13 +38,27 @@ ui <- fluidPage(theme = shinytheme("journal"),
                                         choices=c( "log transforming the predictor (time) variable" , "No transformation to the predictor (time) variable" )),
                             
                             
+                            
+                            
+                            
+                            br(),
+                            actionButton(inputId='ab1', label="R code",   icon = icon("th"), 
+                                         onclick ="window.open('https://raw.githubusercontent.com/eamonn2014/lognormal-biomarker-analysis/master/RCT-lognormal-biomarker-analysis/app.R', '_blank')"),   
                             actionButton("resample", "Simulate a new sample"),
-                            br(),br(),
+                            br(), br(),
                             
-                            actionButton(inputId='ab1', label="R code here", 
-                                         icon = icon("th"), 
-                                         onclick ="window.open('https://raw.githubusercontent.com/eamonn2014/One-way-ANOVA/master/app.R', '_blank')"),
                             
+                            
+                            
+                            
+                            
+                            # actionButton("resample", "Simulate a new sample"),
+                            # br(),br(),
+                            # 
+                            # actionButton(inputId='ab1', label="R code here", 
+                            #              icon = icon("th"), 
+                            #              onclick ="window.open('https://raw.githubusercontent.com/eamonn2014/One-way-ANOVA/master/app.R', '_blank')"),
+                            # 
                             div(strong("Select true population parameters"),p(" ")),
                             
                             
@@ -350,8 +364,18 @@ server <- shinyServer(function(input, output) {
         U   <- mvrnorm(n, mu=mu, Sigma=S)
         
         ### simulate AR(1) errors and then the actual outcomes
+        
+        
         dat$eij <- unlist(sapply(p, function(x) arima.sim(model=list(ar=ar.val), n=x) * sqrt(1-ar.val^2) * sigma))
-        dat$yij <- (beta0 + rep(U[,1], times=p)) + (beta1 + rep(U[,2], times=p)) * log(dat$obs) + dat$eij
+        
+    
+      
+        
+        if (input$Model == "log transforming the predictor (time) variable") {
+           dat$yij <- (beta0 + rep(U[,1], times=p)) + (beta1 + rep(U[,2], times=p)) *  log(dat$obs) + dat$eij  
+        }   else if (input$Model == "No transformation to the predictor (time) variable") {    
+           dat$yij <- (beta0 + rep(U[,1], times=p)) + (beta1 + rep(U[,2], times=p)) *  (dat$obs) + dat$eij  
+        }
         
         ### note: use arima.sim(model=list(ar=ar.val), n=x) * sqrt(1-ar.val^2) * sigma
         ### construction, so that the true error SD is equal to sigma
