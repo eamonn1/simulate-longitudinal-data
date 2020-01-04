@@ -45,19 +45,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                                          onclick ="window.open('https://raw.githubusercontent.com/eamonn2014/lognormal-biomarker-analysis/master/RCT-lognormal-biomarker-analysis/app.R', '_blank')"),   
                             actionButton("resample", "Simulate a new sample"),
                             br(), br(),
-                            
-                            
-                            
-                            
-                            
-                            
-                            # actionButton("resample", "Simulate a new sample"),
-                            # br(),br(),
-                            # 
-                            # actionButton(inputId='ab1', label="R code here", 
-                            #              icon = icon("th"), 
-                            #              onclick ="window.open('https://raw.githubusercontent.com/eamonn2014/One-way-ANOVA/master/app.R', '_blank')"),
-                            # 
+                          
                             div(strong("Select true population parameters"),p(" ")),
                             
                             
@@ -121,7 +109,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             .navbar-default .navbar-nav > li > a[data-value='t3'] {color: green;background-color: lightgreen;}
                    ")), 
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~end of section to add colour     
-                            tabPanel("1 tab", 
+                            tabPanel("Plot and analysis", 
                                      
                                      div(plotOutput("reg.plot", width=fig.width, height=fig.height)),  
                                      
@@ -129,46 +117,17 @@ ui <- fluidPage(theme = shinytheme("journal"),
                                      
                                      div( verbatimTextOutput("reg.summary"))
                                      
-                            ) ,
-                            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                            tabPanel("2 tab", value=3, 
-                                     
-                                     
-                                     
-                                     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
-                                     # for some reason this is need or abpve will not render!
-                                     withMathJax(
-                                         helpText('
-                            $$   $$')),  
-                                     
-                            ) ,
-                            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                            tabPanel("3 tab", value=3, 
-                                     
-                                 
-                                     
-                                     # for some reason this is need or abpve will not render!
-                                     withMathJax(
-                                         helpText('
-                            $$   $$')),  
-                                     
-                            ) ,
-                            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                            tabPanel("4 tab", 
-                                     
-                                    
-                                     
-                                   #  div(plotOutput("residual", width=1200, height=800)) ,
-                            ) ,
+                            ) 
                             
+                            #,
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                            tabPanel("5 tab", 
-                                     
-                                      
-                                   #  div( verbatimTextOutput("summary2")),
-                                     
-                            )
+                          #  tabPanel("2 tab", value=3,) ,
+                            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                           # tabPanel("3 tab", value=3, ) ,
+                            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                           # tabPanel("4 tab", ) ,
+                            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                          #  tabPanel("5 tab",  )
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                         )
@@ -196,9 +155,9 @@ server <- shinyServer(function(input, output) {
          beta1<- input$beta1
          ar.val <- input$ ar.val 
          sigma <- input$sigma
-        tau0 <- input$tau0
-        tau1<- input$tau1
-        tau01<- input$tau01
+         tau0 <- input$tau0
+         tau1<- input$tau1
+         tau01<- input$tau01
          m <- input$m
         
         
@@ -251,13 +210,10 @@ server <- shinyServer(function(input, output) {
         U   <- mvrnorm(n, mu=mu, Sigma=S)
         
         ### simulate AR(1) errors and then the actual outcomes
-        
-        
+
         dat$eij <- unlist(sapply(p, function(x) arima.sim(model=list(ar=ar.val), n=x) * sqrt(1-ar.val^2) * sigma))
         
-    
-      
-        
+
         if (input$Model == "Log transforming the predictor (time) variable") {
            dat$yij <- (beta0 + rep(U[,1], times=p)) + (beta1 + rep(U[,2], times=p)) *  log(dat$obs) + dat$eij  
         }   else if (input$Model == "No transformation to the predictor (time) variable") {    
@@ -266,19 +222,10 @@ server <- shinyServer(function(input, output) {
         
         ### note: use arima.sim(model=list(ar=ar.val), n=x) * sqrt(1-ar.val^2) * sigma
         ### construction, so that the true error SD is equal to sigma
-        
         ### create grouped data object
          dat <- groupedData(yij ~ obs | id, data=dat)
         
-        ### profile plots
-        #plot(dat, pch=19, cex=.5)
-        
-        ### fit corresponding growth model
-        # res <- lme(yij ~ log(obs), random = ~ log(obs) | id, correlation = corAR1(form = ~ 1 | id), data=dat)
-        # summary(res)
-        # 
-        
-        return(list(dat=dat )) 
+         return(list(dat=dat )) 
         
     })  
     
@@ -298,8 +245,7 @@ server <- shinyServer(function(input, output) {
             fit.res <-  
                 tryCatch( 
                     lme(yij ~ log(obs), random = ~ log(obs) | id, correlation = corAR1(form = ~ 1 | id), data=df)
-                    , 
-                         error=function(e) e)
+                    ,  error=function(e) e)
             
             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             ###http://stackoverflow.com/questions/8093914
@@ -307,16 +253,12 @@ server <- shinyServer(function(input, output) {
             
             if (!inherits(fit.res, "error")) {
                 
-               
                 fit.res <-  summary(fit.res) # for the residuals
-              
-                
-                
+
             } else  {
                 
                 fit.res <- NULL
-               
-                
+
             }
             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         } else if (input$Model == "No transformation to the predictor (time) variable") {          
@@ -325,15 +267,13 @@ server <- shinyServer(function(input, output) {
             fit.res <-  
                 tryCatch( 
                     lme(yij ~  (obs), random = ~  (obs) | id, correlation = corAR1(form = ~ 1 | id), data=df)
-                    , 
-                    error=function(e) e)
+                    ,  error=function(e) e)
             
             
             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             if (!inherits(fit.res, "error")) {
            
                 fit.res <-  summary(fit.res) # for the residuals
-                
                 
             } else  {
                 
@@ -357,78 +297,12 @@ server <- shinyServer(function(input, output) {
         }
         
         return(list(  
+          
             fit.summary=fit.summary 
                     
         ))
         
     })     
-    
-    # --------------------------------------------------------------------------
-    # Set up the dataset based on the inputs 
-    # explain <- reactive({
-    #     
-    #     data <- make.regression()
-    #     
-    #     df <- data$df
-    #     
-    #     #### useful statistics
-    #     Nj        <- length(df$DV)                # total no of observations
-    #     Grandmean <- mean(df$DV)                  # grand mean
-    #     grpn      <- tapply(df$DV, df$IV, length) # group sizes
-    #     no.grps   <- length(names(table(  df$IV)))# no of groups
-    #     means     <- tapply(df$DV, df$IV, mean)   # group means
-    #     vars      <- tapply(df$DV, df$IV, var)    # group variances
-    #     
-    #     # simple approiach only for balanced designs
-    #     # estimate sigma2 using a pooled estimate of the variance of each group
-    #     ms.wb <-sum(vars)/no.grps
-    #     
-    #     # we have another way , if the 4 means do not differ the sample means are normally
-    #     # distributed with variance sigma2/group size. sigma2/group size can be estimated by the
-    #     # variance of the smaple means
-    #     # so group size x the above is another estimate of sigma2
-    #     
-    #     ms.bb <- var(means)*unique(grpn)
-    #     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #     # more generally, if groups are of different sizes...
-    #     # within sum of squares
-    #     ss.w <- sum( (grpn-1) * vars )
-    #     
-    #     # within df
-    #     df.w <- Nj -  no.grps
-    #     
-    #     # mean square within
-    #     ms.w <- ss.w /df.w
-    #     
-    #     # between sum of squares
-    #     ss.b <- sum(grpn * (means - Grandmean)^2)
-    #     
-    #     # between df
-    #     df.b <- no.grps -1
-    #     
-    #     # mean square between
-    #     ms.b <- ss.b /df.b
-    #     
-    #     #pvalue
-    #     pv  <- 1 - pf( ms.b/ms.w, df.b, df.w)
-    #     
-    #     A <- c(  df.b,   ss.b, ms.b, ms.b/ms.w, pv , ms.bb)
-    #     B <- c(  df.w  , ss.w, ms.w, NA,        NA , ms.wb)
-    #     
-    #     ANOVA <- NULL
-    #     ANOVA <- as.data.frame(rbind(A,B))
-    #     
-    #     n1 <- c("Df","Sum Sq","Mean Sq","F value","Pr(>F)", "Mean Sq balanced only")
-    #     n2 <- c("IV","Residuals")
-    #     
-    #     colnames(ANOVA) <- n1
-    #     rownames(ANOVA) <- n2
-    #     
-    #     ANOVA <-  as.data.frame(ANOVA[,1:6])
-    #     ANOVA2 <-  as.data.frame(ANOVA[,1:5])
-    #     
-    #     return(list( ANOVA=ANOVA, ANOVA2=ANOVA2)) 
-    # })  
     
     # --------------------------------------------------------------------------
     #---------------------------------------------------------------------------
@@ -447,11 +321,7 @@ server <- shinyServer(function(input, output) {
             #base plot~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             #https://rstudio-pubs-static.s3.amazonaws.com/308410_2ece93ee71a847af9cd12fa750ed8e51.html
             names(df) <- c("ID","VISIT","eij","value")
-            
-           
-            #df$value <- log(df$value)  #log the GH values!!!!!!!!!!!!!!! 
-            
-            
+        
             df_summary <- df %>% # the names of the new data frame and the data frame to be summarised
                 group_by(VISIT) %>%                # the grouping variable
                 summarise(mean_PL = mean(value, na.rm=TRUE),  # calculates the mean of each group
@@ -480,26 +350,6 @@ server <- shinyServer(function(input, output) {
                                    labels = 
                                        c(unique(df$VISIT))
                 ) +
-                
-                
-                #  geom_segment(aes(x = 1, xend = 3, y = (1), yend=(1)), color = "blue" , size=0.05, linetype="dashed", alpha=0.02) +
-                #  geom_segment(aes(x = 1, xend = 3, y = (2.5), yend=(2.5)), color = "blue" , size=0.05, linetype="dashed", alpha=0.02) +
-                
-                # theme(axis.text.y   = element_text(size=10),
-                #       axis.text.x   = element_text(size=10),
-                #       axis.title.y  = element_text(size=14),
-                #       axis.title.x  = element_text(size=14),
-                #       panel.background = element_blank(),
-                #       panel.grid.major = element_blank(), 
-            #       panel.grid.minor = element_blank(),
-            #       legend.position="none",
-            #       legend.text=NULL,
-            #       legend.title=NULL,
-            #       axis.line = element_line(colour = "black", size=0.05),
-            #       panel.border = element_rect(colour = "black", fill=NA, size=0.05)
-            # ) +
-            
-            
             
             EnvStats::stat_n_text(size = 4, y.pos = max(df_summary1$value, na.rm=T)*1.1 , y.expand.factor=0, 
                                   angle = 0, hjust = .5, family = "mono", fontface = "plain") + #295 bold
@@ -525,15 +375,11 @@ server <- shinyServer(function(input, output) {
                                      length(unique(df$ID))," patients & arithmetic mean with 95% CI shown in black\nNumber of patient values at each time point") )
             
                   )
-        
-            
-            
-            
+       
         } else {
             
             plot(df, pch=19, cex=.5)
              
-            
         }
         
     })
@@ -601,19 +447,3 @@ server <- shinyServer(function(input, output) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
-# Define server logic required to draw a histogram
-# server <- function(input, output) {
-# 
-#     output$distPlot <- renderPlot({
-#         # generate bins based on input$bins from ui.R
-#         x    <- faithful[, 2]
-#         bins <- seq(min(x), max(x), length.out = input$bins + 1)
-# 
-#         # draw the histogram with the specified number of bins
-#         hist(x, breaks = bins, col = 'darkgray', border = 'white')
-#     })
-# }
-
-# Run the application 
-# shinyApp(ui = ui, server = server)
