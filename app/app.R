@@ -35,7 +35,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             
                             selectInput("Model",
                                         strong("Select modelling preference "),
-                                        choices=c( "base R" , "VCA package" )),
+                                        choices=c( "log transforming the predictor (time) variable" , "No transformation to the predictor (time) variable" )),
                             
                             
                             actionButton("resample", "Simulate a new sample"),
@@ -382,7 +382,7 @@ server <- shinyServer(function(input, output) {
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Conditionally fit the model
         
-        if (input$Model == "base R") {
+        if (input$Model == "log transforming the predictor (time) variable") {
             
             fit.res <-  
                 tryCatch( 
@@ -408,12 +408,12 @@ server <- shinyServer(function(input, output) {
                 
             }
             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        } else if (input$Model == "VCA package") {          
+        } else if (input$Model == "No transformation to the predictor (time) variable") {          
             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             
             fit.res <-  
                 tryCatch( 
-                    lme(yij ~ log(obs), random = ~ log(obs) | id, correlation = corAR1(form = ~ 1 | id), data=df)
+                    lme(yij ~  (obs), random = ~  (obs) | id, correlation = corAR1(form = ~ 1 | id), data=df)
                     , 
                     error=function(e) e)
             
