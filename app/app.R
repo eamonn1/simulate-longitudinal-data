@@ -31,7 +31,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             
                             selectInput("Plot",
                                         strong("Select plot preference "),
-                                        choices=c("ggplot", "VCA package plot" )),
+                                        choices=c("All profiles together", "Individual profile plots" )),
                             
                             selectInput("Model",
                                         strong("Select modelling preference "),
@@ -53,33 +53,32 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             
                             sliderInput("n",
                                         "No of subjects",
-                                        min=2, max=500, step=1, value=10, ticks=FALSE),
+                                        min=2, max=500, step=1, value=200, ticks=FALSE),
                             
                             sliderInput("beta0", "Average intercept", 
-                                        min = 50, max = 2000, value = c(400), ticks=FALSE) ,
+                                        min = 50, max = 2000, step=.5, value = c(400), ticks=FALSE) ,
                             
                             sliderInput("beta1", "Average slope",
-                                        min = -100, max = 100, value = c(-60),ticks=FALSE),
+                                        min = -100, max = 100, step=.5, value = c(-60),ticks=FALSE),
                             
                             sliderInput("ar.val", "True autocorrelation",  
                                         min = -1, max = 1, value = c(.4), step=0.05, ticks=FALSE),
                        
                             sliderInput("sigma", "True error SD", #    
-                                        min = 2, max = 200, value = c(100), ticks=FALSE),
+                                        min = 2, max = 200, value = c(100), step=.5, ticks=FALSE),
                             
                             sliderInput("tau0", "True intercept SD", #   
-                                        min = 1, max = 100, value = c(25), ticks=FALSE),
+                                        min = 1, max = 100, value = c(25.5), step=.5, ticks=FALSE),
                             
                             sliderInput("tau1", "True slope SD", #    
-                                        min = 1, max = 100, value = c(10), ticks=FALSE),
+                                        min = 1, max = 100, value = c(10),step=.5,  ticks=FALSE),
                             
                             sliderInput("tau01", "True intercept slope correlation", #   
-                                        min = -1, max = 1, value = c(.41), step=0.05, ticks=FALSE),
+                                        min = -1, max = 1, value = c(0), step=0.05, ticks=FALSE),
                             
                             sliderInput("m", "maximum number of possible observations", #   
-                                        min = 2, max = 100, value = c(10), ticks=FALSE)
+                                        min = 2, max = 100, value = c(10), ticks=FALSE, step=1)
                         
-                            
                             
                                
                         )
@@ -358,7 +357,7 @@ server <- shinyServer(function(input, output) {
         ### construction, so that the true error SD is equal to sigma
         
         ### create grouped data object
-       dd <- dat <- groupedData(yij ~ obs | id, data=dat)
+         dat <- groupedData(yij ~ obs | id, data=dat)
         
         ### profile plots
         #plot(dat, pch=19, cex=.5)
@@ -368,7 +367,7 @@ server <- shinyServer(function(input, output) {
         # summary(res)
         # 
         
-        return(list(dat=dat, dd=dd)) 
+        return(list(dat=dat )) 
         
     })  
     
@@ -532,7 +531,7 @@ server <- shinyServer(function(input, output) {
         df <- data1$dat
         
         # Conditionally plot
-        if (input$Plot == "ggplot") {
+        if (input$Plot == "All profiles together") {
             
             #base plot~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             #https://rstudio-pubs-static.s3.amazonaws.com/308410_2ece93ee71a847af9cd12fa750ed8e51.html
@@ -615,22 +614,7 @@ server <- shinyServer(function(input, output) {
                                      length(unique(df$ID))," patients & arithmetic mean with 95% CI shown in black\nNumber of patient values at each time point") )
             
                   )
-            
-            
-          #  pr1
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
+        
             
             
             
@@ -674,6 +658,10 @@ server <- shinyServer(function(input, output) {
         if (!is.null(summary)) {
             
             return(fit.regression()$fit.summary)
+            
+        } else if (is.null(summary)){
+            
+            return("error")
         }
         
     })
@@ -681,7 +669,7 @@ server <- shinyServer(function(input, output) {
     # the data to print
     output$summary2 <- renderPrint({ 
         
-        return(make.regression()$dd)
+        return(make.regression()$dat)
         
     })
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
