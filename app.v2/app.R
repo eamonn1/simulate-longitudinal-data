@@ -48,7 +48,7 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             
                             
                             actionButton(inputId='ab1', label="R code",   icon = icon("th"), 
-                                         onclick ="window.open('https://raw.githubusercontent.com/eamonn2014/simulate-longitudinal-data/master/app/app.R', '_blank')"),   
+                                         onclick ="window.open('https://raw.githubusercontent.com/eamonn2014/simulate-longitudinal-data/master/app.v2/app.R', '_blank')"),   
                             actionButton("resample", "Simulate a new sample"),
                             br(), br(),
                             
