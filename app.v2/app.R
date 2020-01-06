@@ -28,22 +28,23 @@ ui <- fluidPage(theme = shinytheme("journal"),
                     sidebarPanel( 
                         
                         div(p("We simulate, plot and analyse longitudinal data. Two options for the data generation and analysis are provided. 
-                              'Log transforming the predictor (time) variable' and 'No transformation to the predictor (time) variable'. For the former log of time is included in
+                              'Log transforming the predictor (time) variable' and 'No transformation to the predictor (time) variable'. 
+                              For the former log of time is included in
                               the data generation and accounted for in the model. In the latter, no log transformation is applied nor included in the model. 
-                              The sliders can be used to select the true population parameters. Two plot options are provided, 'All profiles together' and 'Individual profile plots'.")),
+                              We also allow both models to be fit including restricted cubic splines with 3 knots from Frank Harrell's rms package.
+                              The first tab is a plot of the data including arithmetic means and 95%CI at each timepoint. Tab 2 presents a longitudinal plot of the data
+                              again plus inclusion of the modelling approach and allows selection of which interval type to present, the last two tabs present the fitted model and a listing of the data. 
+                              
+                              The sliders can be used to select the true population parameters. Two plot options are provided on the first tab only, 'All profiles together' and 
+                              'Individual profile plots'.")),
                         
                         div(
                             
-                            selectInput("Plot",
-                                        strong("Select plot preference "),
-                                        choices=c("All profiles together", "Individual profile plots" )),
-                            
+                             
                             selectInput("Model",
-                                        strong("Select modelling preference "),
+                                        strong("Select modelling preference:"),
                                         choices=c( "Log transforming the predictor (time) variable" , "No transformation to the predictor (time) variable" ,
-                                                   "Log transforming with restricted cubic spline" , "No transformation with restricted cubic spline"
-                                                   
-                                        )),
+                                                   "Log transforming with restricted cubic spline" , "No transformation with restricted cubic spline"), width='70%'),
                             
                             
                             actionButton(inputId='ab1', label="R code",   icon = icon("th"), 
@@ -54,7 +55,8 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             div(strong("Select true population parameters"),p(" ")),
                             
                             
-                            div(("Select the number of subjects, average intercept, average slope, the auto correlation, error SD, intercept SD, slope SD and the slope intercept correlation as well as the maximum number of visits.
+                            div(("Select the number of subjects, average intercept, average slope, the auto correlation, error SD, intercept SD, 
+                            slope SD and the slope intercept correlation as well as the maximum number of visits.
                                  
                                  
                                  Another sample can be taken from the same population/data generating mechanism by clicking 'Simulate a new sample'.")),
@@ -114,7 +116,11 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             .navbar-default .navbar-nav > li > a[data-value='t3'] {color: green;background-color: lightgreen;}
                    ")), 
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~end of section to add colour     
-                            tabPanel("Plot and analysis", 
+                            tabPanel("1 Plot and analysis", 
+                                     
+                                     selectInput("Plot",
+                                                 strong("Select plot preference "),
+                                                 choices=c("All profiles together", "Individual profile plots" )),
                                      
                                      div(plotOutput("reg.plot", width=fig.width, height=fig.height)),  
                                      
@@ -126,25 +132,36 @@ ui <- fluidPage(theme = shinytheme("journal"),
                             
                             #,
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                            tabPanel("2 Mean prediction", value=3,
+                            tabPanel("2 Confidence and prediction intervals", value=3,
+                                   
+                                     selectInput('bands', 'Choose the interval to present:',
+                                                choices = c('confidence', 'prediction', 'both', 'none')),
+                                    #  br(), br(),
+                          
                                      
+                                     div(plotOutput("reg.plot2", width=fig.width, height=fig.height)),
+                                    # tableOutput("view")         
                                      
-                                     
-                                     div(plotOutput("reg.plot2", width=fig.width, height=fig.height)),  
-                                     tableOutput("view")         
-                                     
-                                     
+                                    p(strong("For programming practice four models can be fit to the data; combinations
+                                              of log transforming the predictor time and/or including a restricted cubic splines 
+                                              transformation of the time predictor with 3 knots using Frank Harrell's rms package. 
+                                              We add a small amount of horizontal random noise so the datapoints are more easily distinguished.
+                                              In the event a model returns an error, click 'Simulate a new sample' to repeat the experiment.")) 
                                      
                             ) ,
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                            tabPanel("3 test", value=3, 
+                            tabPanel("3 Model summary", value=3, 
                                      
-                                     div( verbatimTextOutput("test1"))  ,  
-                                     div( verbatimTextOutput("test2"))  ,
                                      
-                            ) 
+                                     div( verbatimTextOutput("test1"))  ,
+                                     
+                            ) ,
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                            # tabPanel("4 tab", ) ,
+                             tabPanel("4 Data listing", 
+                                      
+                                      div( verbatimTextOutput("test2"))  , 
+                                      
+                                      ) #,
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                             #  tabPanel("5 tab",  )
                             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -163,38 +180,34 @@ server <- shinyServer(function(input, output) {
     
     # --------------------------------------------------------------------------
     # This is where a new sample is instigated only random noise is required to be generated
-    # random.sample <- reactive({
-    # 
-    #     # Dummy line to trigger off button-press
-    #     foo <- input$resample
-    # 
-    # 
-    #      n <- input$n
-    #      beta0<- input$beta0
-    #      beta1<- input$beta1
-    #      ar.val <- input$ ar.val
-    #      sigma <- input$sigma
-    #      tau0 <- input$tau0
-    #      tau1<- input$tau1
-    #      tau01<- input$tau01
-    #      m <- input$m
-    # 
-    # 
-    # 
-    # 
-    #     return(list(
-    #         n =n ,
-    #         beta0=beta0,
-    #         beta1=beta1,
-    #         ar.val= ar.val ,
-    #         sigma =sigma,
-    #         tau0 =tau0,
-    #         tau1=tau1,
-    #         tau01=tau01,
-    #         m =m
-    #     ))
-    # 
-    # })
+    random.sample <- reactive({
+
+        # Dummy line to trigger off button-press
+        foo <- input$resample
+
+         n <- input$n
+         beta0<- input$beta0
+         beta1<- input$beta1
+         ar.val <- input$ ar.val
+         sigma <- input$sigma
+         tau0 <- input$tau0
+         tau1<- input$tau1
+         tau01<- input$tau01
+         m <- input$m
+
+       return(list(
+            n =n ,
+            beta0=beta0,
+            beta1=beta1,
+            ar.val= ar.val ,
+            sigma =sigma,
+            tau0 =tau0,
+            tau1=tau1,
+            tau01=tau01,
+            m =m
+        ))
+
+    })
     
     # --------------------------------------------------------------------------
     # Set up the dataset based on the inputs 
@@ -226,6 +239,16 @@ server <- shinyServer(function(input, output) {
     #   
     # })  
     #   
+    
+    # Return the requesteed dataset
+    datasetInput <- reactive({
+        switch (input$bands,
+                'confidence' = confidence,
+                'prediction' = predition,
+                'none' = none,
+                'both' = both
+        )
+    })
     
     
     
@@ -274,7 +297,6 @@ server <- shinyServer(function(input, output) {
         
         data <- make.regression()
         
-        
         dat <- data$dat1  
         p=data$p
         U=data$U
@@ -287,11 +309,10 @@ server <- shinyServer(function(input, output) {
             dat$yij <- (beta0 + rep(U[,1], times=p)) + (beta1 + rep(U[,2], times=p)) *  (dat$obs) + dat$eij   
         } 
         
-        
         ### note: use arima.sim(model=list(ar=ar.val), n=x) * sqrt(1-ar.val^2) * sigma
         ### construction, so that the true error SD is equal to sigma
         ### create grouped data object
-        dat <- groupedData(yij ~ obs | id, data=dat)  # use d for prediction later
+        dat <- groupedData(yij ~ obs | id, data=dat)   
         
         return(list(dat=dat )) 
         
@@ -545,26 +566,84 @@ server <- shinyServer(function(input, output) {
         
         n<-dim(foo)[1]
         foo$obs<-foo$obs+rnorm(n, mean=0, sd=.1) #add jitter
+        
+        
+        df_summary <- d %>% # the names of the new data frame and the data frame to be summarised
+            group_by(obs) %>%                # the grouping variable
+            summarise(mean_PL = mean(yij, na.rm=TRUE),  # calculates the mean of each group
+                      sd_PL = sd(yij, na.rm=TRUE),      # calculates the sd of each group
+                      n_PL = length(na.omit(yij)),      # calculates the sample size per group
+                      SE_PL = sd(yij, na.rm=TRUE)/sqrt(length(na.omit(yij)))) # SE of each group
+        
+        df_summary1 <- merge(d, df_summary)  # merge stats to dataset
+        
+        df_summary1$L2SE <- df_summary1$mean_PL - 2*df_summary1$SE_PL
+        df_summary1$H2SE <- df_summary1$mean_PL + 2*df_summary1$SE_PL
+        
+        
         # 
         p1 <- px <- NULL 
         
         
-        ##################################################
+        if (input$bands == 'none') {
+            
+        p1 <- 
+            ggplot(new.dat,aes(x=obs,y=pred)) +
+            geom_line(colour="black") +
+            guides(colour=FALSE) 
+            
+        
+        } else if (input$bands == 'both') {
+            
+            p1 <- 
+                ggplot(new.dat,aes(x=obs,y=pred)) +
+                geom_line(colour="black") +
+                guides(colour=FALSE) +
+                geom_ribbon(aes(ymin=pred-2*SE,ymax=pred+2*SE),  alpha=0.2,fill="purple") +
+                geom_ribbon(aes(ymin=pred-2*SE2,ymax=pred+2*SE2),  alpha=0.2,fill="grey") 
+           
+    }  else if (input$bands == 'confidence') {
+    
+    p1 <- 
+        ggplot(new.dat,aes(x=obs,y=pred)) +
+        geom_line(colour="black") +
+        guides(colour=FALSE) +
+        geom_ribbon(aes(ymin=pred-2*SE,ymax=pred+2*SE),  alpha=0.2,fill="purple") 
+         
+    } else if (input$bands == 'prediction') {
         
         p1 <- 
             ggplot(new.dat,aes(x=obs,y=pred)) +
             geom_line(colour="black") +
             guides(colour=FALSE) +
-            geom_ribbon(aes(ymin=pred-2*SE,ymax=pred+2*SE),  alpha=0.2,fill="purple") +
-            geom_point(data=foo,aes(x=obs,y=yij),size=0.6) +
-            scale_y_continuous(limits = c(min(foo$yij)-3, max(foo$yij)+3)) +
-            scale_x_continuous(limits = c(min(obs),max(obs)) , breaks=seq(min(obs) :max(obs))  ,
-                               labels= seq(min(obs) :max(obs)) ) +
-            geom_line(data=foo,aes(x=obs,y=yij , group=id, colour=factor(id) ), linetype = "dotted",   size=0.7)  +
+            geom_ribbon(aes(ymin=pred-2*SE2,ymax=pred+2*SE2),  alpha=0.2,fill="grey") 
+        
+    }
+        
+            
+       p2 <- p1 +     geom_point(data=foo,aes(x=obs,y=yij),size=0.6) +
+           # scale_y_continuous(limits = c(min(foo$yij)-3, max(foo$yij)+3)) +
+          scale_x_continuous(limits = c(min(obs)-.5,max(obs)+.5) , breaks=seq(min(obs)-.5 :max(obs)+.5)  ,
+                              labels= seq(min(obs) -.5:max(obs)+.5) ) +
+            geom_line(data=foo,aes(x=obs,y=yij , group=id, colour=factor(id) ), linetype = "dotted",   size=0.6)  +
             scale_colour_discrete(name = "Samples") +
             xlab("Visit") +
-            ylab("Response")
-        px <- p1 + ggtitle(paste(length(unique(foo$id)), "subjects", sep=" " )) +
+            ylab("Response") +
+           scale_y_continuous(expand = c(.1,0) ) +
+           
+           
+           
+           # scale_x_continuous(breaks = c(unique(foo$obs)),
+           #                    labels = 
+           #                        c(unique(foo$obs))
+           # ) +
+           
+           EnvStats::stat_n_text(size = 4, y.pos = max(df_summary1$yij, na.rm=T)*1.1 , y.expand.factor=0, 
+                                 angle = 0, hjust = .5, family = "mono", fontface = "plain") 
+        
+        
+        
+        px <- p2 + ggtitle(paste(length(unique(foo$id)), "subjects", sep=" " )) +
             theme(panel.background=element_blank(),
                   # axis.text.y=element_blank(),
                   # axis.ticks.y=element_blank(),
@@ -579,7 +658,10 @@ server <- shinyServer(function(input, output) {
                   axis.line.x = element_line(color="black"),
                   axis.line.y = element_line(color="black"),
                   plot.caption=element_text(hjust = 0, size = 7))
-        print(px)
+        
+        print(px + labs(y="Response", x = "Visit") +  
+                  ggtitle(paste0("Individual responses ",
+                                 length(unique(d$id))," patients with choice of 95% intervals\nThe number of patient values at each time point is presented") ) )
         
         
         ########################################################
@@ -650,6 +732,8 @@ server <- shinyServer(function(input, output) {
     output$test1 <- renderPrint({ 
         
         model.mx  <- fit.regression()$fit.summary
+        
+        model.mx <- summary(model.mx)
         
         return(model.mx )
         
