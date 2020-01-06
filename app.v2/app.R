@@ -250,22 +250,37 @@ server <- shinyServer(function(input, output) {
         )
     })
     
-    
-    
-    
+  
     make.regression <- reactive({
         
         #   https://stats.stackexchange.com/questions/28876/difference-between-anova-power-simulation-and-power-calculation
+        # 
+        # n <- input$n 
+        # beta0<- input$beta0
+        # beta1<- input$beta1
+        # ar.val <- input$ ar.val 
+        # sigma <- input$sigma
+        # tau0 <- input$tau0
+        # tau1<- input$tau1
+        # tau01<- input$tau01
+        # m <- input$m
         
-        n <- input$n 
-        beta0<- input$beta0
-        beta1<- input$beta1
-        ar.val <- input$ ar.val 
-        sigma <- input$sigma
-        tau0 <- input$tau0
-        tau1<- input$tau1
-        tau01<- input$tau01
-        m <- input$m
+        # introducing a rand draw , want this to stay constant if different models are seleted.
+        sample <- random.sample()
+          sample <- random.sample()
+          n<- sample$n
+          beta0<- sample$beta0
+          beta1<- sample$beta1
+          ar.val <- sample$ar.val
+          sigma <- sample$sigma
+          tau0 <- sample$tau0
+          tau1<- sample$tau1
+          tau01<- sample$tau01
+          m <- sample$m
+        
+        
+        
+        
         
         p <- round(runif(n,4,m))
         
@@ -297,11 +312,15 @@ server <- shinyServer(function(input, output) {
         
         data <- make.regression()
         
+        
         dat <- data$dat1  
         p=data$p
         U=data$U
         beta0<- input$beta0
         beta1<- input$beta1
+        
+        # sample <- random.sample()
+        # U = sample$U
         
         if (input$Model == "Log transforming the predictor (time) variable" | input$Model == "Log transforming with restricted cubic spline")  {
             dat$yij <- (beta0 + rep(U[,1], times=p)) + (beta1 + rep(U[,2], times=p)) *  log(dat$obs) + dat$eij  
